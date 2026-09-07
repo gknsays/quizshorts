@@ -133,7 +133,11 @@ jobs:
           node scripts/slotGuard.mjs done
           git config user.name "quiz-automation-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data/used-quiz.json data/slots.json
+          # Dosyalari tek tek degil klasor olarak ekliyoruz: slots.json ilk
+          # calistirmada henuz olusmamis olabiliyor ve eksik dosyayi 'git add'
+          # etmek adimi hataya dusuruyor (video yuklenmis olsa bile is basarisiz
+          # gorunuyordu). Uretim ciktilari zaten .gitignore'da.
+          git add data/
           if ! git diff --cached --quiet; then
             git commit -m "chore: soru gecmisini guncelle [skip ci]"
             git pull --rebase origin HEAD
