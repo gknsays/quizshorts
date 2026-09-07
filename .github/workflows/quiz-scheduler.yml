@@ -12,11 +12,14 @@ name: Quiz Shorts (4x/gun)
 # video cikar, ve ayni slot icin ikinci kez cikmaz.
 #
 # Yayin slotlari (scripts/slotGuard.mjs icinde tanimli):
-#   TRT 08:12 = UTC 05:12   (sabah kusagi)
-#   TRT 13:17 = UTC 10:17   (ogle zirvesi)
-#   TRT 16:23 = UTC 13:23   (ogleden sonra altin saat)
-#   TRT 19:17 = UTC 16:17   (aksam zirvesi)
-#   TRT 21:37 = UTC 18:37   (gece oncesi son dilim)
+#   TRT 08:12 = UTC 05:12
+#   TRT 12:12 = UTC 09:12
+#   TRT 16:12 = UTC 13:12
+#   TRT 20:12 = UTC 17:12
+#
+# Ayni kanalda ikinci bir otomasyon calisiyor (gknsays/shorts) ve onun
+# slotlari bunlarin TAM ORTASINDA: TRT 10:12 / 14:12 / 18:12 / 22:12.
+# Kanaldan iki saatte bir video cikiyor, hicbiri digerine yakin dusmuyor.
 #
 # NEDEN 4? Ayni kanaldan gun icinde cok sayida video ciktiginda YouTube her
 # birine daha kucuk bir baslangic gosterim havuzu ayirir ve videolar
@@ -25,9 +28,9 @@ name: Quiz Shorts (4x/gun)
 
 on:
   schedule:
-    # Pencere ilk slotu (05:12 UTC) ve son slotun (18:37 UTC) 3 saatlik
+    # Pencere ilk slotu (05:12 UTC) ve son slotun (17:12 UTC) 3 saatlik
     # telafi suresini kapsiyor.
-    - cron: "*/20 5-22 * * *"
+    - cron: "*/20 5-20 * * *"
   workflow_dispatch:
     inputs:
       force:

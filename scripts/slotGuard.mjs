@@ -26,20 +26,20 @@ const DATA_DIR = path.resolve("data");
 const STATE_FILE = path.join(DATA_DIR, "slots.json");
 
 // Yayın slotları, UTC olarak. TRT = UTC+3.
-//   05:12 UTC = 08:12 TRT   (sabah kuşağı)
-//   10:17 UTC = 13:17 TRT   (öğle zirvesi)
-//   13:23 UTC = 16:23 TRT   (öğleden sonra altın saat)
-//   16:17 UTC = 19:17 TRT   (akşam zirvesi)
-//   18:37 UTC = 21:37 TRT   (gece öncesi son dilim)
+//   05:12 UTC = 08:12 TRT
+//   09:12 UTC = 12:12 TRT
+//   13:12 UTC = 16:12 TRT
+//   17:12 UTC = 20:12 TRT
 //
 // Aynı kanalda ikinci bir otomasyon çalışıyor (gknsays/shorts) ve onun
-// slotları bunların BİR SAAT SONRASINA kurulu. Aynı kanaldan aynı anda iki
-// video çıktığında YouTube her ikisine de daha küçük bir başlangıç gösterim
-// havuzu ayırıyor ve videolar birbirinin izleyicisini yiyor.
+// slotları bunların TAM ORTASINDA: TRT 10:12 / 14:12 / 18:12 / 22:12.
+// Böylece kanaldan iki saatte bir video çıkıyor, hiçbiri diğerine yakın
+// düşmüyor. Aynı kanaldan kısa aralıkla çıkan videolar YouTube'un ayırdığı
+// başlangıç gösterim havuzunu bölüşüyor ve birbirinin izleyicisini yiyor.
 //
 // Saatler bilinçli olarak tam saat başında DEĞİL: GitHub Actions'ın
 // zamanlanmış işleri saat başlarında yoğunlaşıyor ve tetiklemeler düşüyor.
-const SLOTS = ["05:12", "10:17", "13:23", "16:17", "18:37"];
+const SLOTS = ["05:12", "09:12", "13:12", "17:12"];
 
 // Bir slot kaçırıldıysa en fazla bu kadar süre sonra hâlâ telafi edilir.
 // Bunun ötesinde slot düşer - gece yarısı öğle videosunu atmanın anlamı yok.
