@@ -12,6 +12,7 @@ name: Quiz Shorts (4x/gun)
 # video cikar, ve ayni slot icin ikinci kez cikmaz.
 #
 # Yayin slotlari (scripts/slotGuard.mjs icinde tanimli):
+#   TRT 08:12 = UTC 05:12   (sabah kusagi)
 #   TRT 13:17 = UTC 10:17   (ogle zirvesi)
 #   TRT 16:23 = UTC 13:23   (ogleden sonra altin saat)
 #   TRT 19:17 = UTC 16:17   (aksam zirvesi)
@@ -24,7 +25,9 @@ name: Quiz Shorts (4x/gun)
 
 on:
   schedule:
-    - cron: "*/20 10-21 * * *"
+    # Pencere ilk slotu (05:12 UTC) ve son slotun (18:37 UTC) 3 saatlik
+    # telafi suresini kapsiyor.
+    - cron: "*/20 5-22 * * *"
   workflow_dispatch:
     inputs:
       force:
