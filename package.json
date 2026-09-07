@@ -1,0 +1,33 @@
+{
+  "name": "quizshorts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Turkce YouTube Shorts quiz otomasyonu - dogrulanmis sorular, Remotion ile uretilen gorsel, otomatik yayin",
+  "scripts": {
+    "quiz": "node scripts/produceQuiz.mjs",
+    "quiz:test": "node scripts/produceQuiz.mjs --no-upload",
+    "make-sfx": "node scripts/makeSfx.mjs",
+    "preview": "remotion studio src/index.ts",
+    "youtube-auth": "node scripts/youtubeAuth.mjs"
+  },
+  "dependencies": {
+    "@andresaya/edge-tts": "^1.8.0",
+    "@remotion/bundler": "4.0.286",
+    "@remotion/cli": "4.0.286",
+    "@remotion/renderer": "4.0.286",
+    "dotenv": "^16.4.5",
+    "googleapis": "^140.0.1",
+    "open": "^10.1.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.286"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.1",
+    "typescript": "^5.4.5"
+  },
+  "allowScripts": {
+    "esbuild@0.25.0": true
+  }
+}

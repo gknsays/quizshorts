@@ -1,0 +1,15 @@
+node_modules
+out
+.env
+token.json
+.remotion
+
+# Her calistirmada yeniden uretiliyor
+data/quiz.json
+data/metadata.json
+
+# makeSfx.mjs ile sentezleniyor, deterministik
+public/sfx/
+
+# Seslendirme ciktilari
+public/audio/
