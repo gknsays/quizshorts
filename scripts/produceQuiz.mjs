@@ -431,8 +431,36 @@ function run(cmd, args) {
 
 // --- Ana akış -------------------------------------------------------------
 
+// Gerekli ayarlar eksikse ANLASILIR bir hatayla dur. Aksi halde script
+// anahtarsiz API cagrisi yapip Google'dan "Method doesn't allow unregistered
+// callers" gibi sebebi belirsiz bir 403 aliyor; GitHub Actions'ta ilk
+// calistirma tam olarak boyle dustu.
+function ayarlariDenetle({ yuklemeVar }) {
+  const eksik = [];
+
+  if (!process.env.GEMINI_API_KEY) eksik.push("GEMINI_API_KEY (soru üretimi)");
+
+  if (yuklemeVar) {
+    if (!process.env.YT_CLIENT_ID) eksik.push("YT_CLIENT_ID (YouTube yükleme)");
+    if (!process.env.YT_CLIENT_SECRET) eksik.push("YT_CLIENT_SECRET (YouTube yükleme)");
+    if (!fs.existsSync(path.join(ROOT, "token.json"))) {
+      eksik.push("token.json (npm run youtube-auth ile oluşturulur)");
+    }
+  }
+
+  if (eksik.length === 0) return;
+
+  throw new Error(
+    "Gerekli ayarlar eksik:\n" +
+      eksik.map((e) => "   - " + e).join("\n") +
+      "\n\n   Yerelde: .env dosyasını kontrol et (.env.example örnek).\n" +
+      "   GitHub Actions'ta: Settings > Secrets and variables > Actions > Secrets"
+  );
+}
+
 async function main() {
   const noUpload = process.argv.includes("--no-upload");
+  ayarlariDenetle({ yuklemeVar: !noUpload });
 
   fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.mkdirSync(AUDIO_DIR, { recursive: true });
