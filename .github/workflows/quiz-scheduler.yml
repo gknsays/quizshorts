@@ -27,9 +27,12 @@ name: Quiz Shorts (4x/gun)
 
 on:
   schedule:
-    # Pencere ilk slotu (07:12 UTC) ve son slotun (17:12 UTC) 3 saatlik
-    # telafi suresini kapsiyor.
-    - cron: "*/20 7-20 * * *"
+    # NEDEN */20 DEGIL: "*/20" yazildiginda GitHub tetiklemelerin neredeyse
+    # tamamini dusuruyordu - olculen gercek aralik ~3 saatti (19:01, 22:05).
+    # Sik cron'lar agir sekilde kisiliyor. Bunun yerine gunde 6 kez, dogrudan
+    # slot saatlerinde ve birer saat sonrasinda (yedek) tetikliyoruz.
+    # Slot saatleri UTC 07:12 / 12:12 / 17:12.
+    - cron: "12 7,8,12,13,17,18 * * *"
   workflow_dispatch:
     inputs:
       force:

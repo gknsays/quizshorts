@@ -42,7 +42,10 @@ const SLOTS = ["07:12", "12:12", "17:12"];
 
 // Bir slot kaçırıldıysa en fazla bu kadar süre sonra hâlâ telafi edilir.
 // Bunun ötesinde slot düşer - gece yarısı öğle videosunu atmanın anlamı yok.
-const CATCHUP_HOURS = 3;
+// 3 saatten 2'ye indirildi: GitHub Actions tetiklemeleri ~3 saat gecikmeyle
+// geldigi icin bir slot gece yarisindan sonra yayinlanmisti. O saatte izleyici
+// yok; videoyu olu bir saatte yakmaktansa slotu dusurmek daha dogru.
+const CATCHUP_HOURS = 2;
 
 function loadState() {
   try {
