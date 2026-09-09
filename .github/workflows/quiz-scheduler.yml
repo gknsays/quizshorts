@@ -1,38 +1,45 @@
-name: Quiz Shorts (4x/gun)
+name: Quiz Shorts (3x/gun)
 
-# ZAMANLAMA NEDEN BOYLE KURULDU?
-# GitHub Actions'in zamanlanmis isleri garanti degil; kendi belgelerinde
-# "yogunluk donemlerinde gecikebilir veya calismayabilir" yaziyor.
+# YAYIN SAATLERI (TRT), kanaldaki iki nis donusumlu:
+#    07:00  quiz         <- BU DEPO
+#    11:00  pratik bilgi (gknsays/shorts deposu)
+#    14:00  quiz         <- BU DEPO
+#    17:00  pratik bilgi (gknsays/shorts deposu)
+#    19:30  quiz         <- BU DEPO
+# Bu depo gunde 3 video atiyor, kanaldan toplam 5 video cikiyor.
 #
-# Bu yuzden tek bir cron'a guvenmiyoruz: cron her 20 dakikada bir YOKLUYOR,
-# asil karari scripts/slotGuard.mjs veriyor. Bekci, gecmis slotlardan
-# yayinlanmamis olan var mi diye bakar; yoksa is ~20 saniyede sonlanir,
-# varsa pipeline calisir ve slot data/slots.json'a islenir. Boylece GitHub
-# tetiklemelerin cogunu dusurse bile slottan sonraki ilk basarili yoklamada
-# video cikar, ve ayni slot icin ikinci kez cikmaz.
+#  YAYIN SAATI NASIL TUTTURULUYOR?
+#  GitHub Actions'in cron'u dakikinde calismiyor: tetiklemeler saatlerce
+#  gecikebiliyor, bir kismi da hic gelmiyor. Yayin saatini "isin calistigi
+#  an"a baglarsan bu gecikmeyi yenmek mumkun degil - nitekim eski tasarimda
+#  8 Eylul'de calistirmalar yesil gorundugu halde tek video cikmadi.
 #
-# Yayin slotlari (scripts/slotGuard.mjs icinde tanimli):
-#   TRT 10:12 = UTC 07:12   (sabah kusagi)
-#   TRT 15:12 = UTC 12:12   (ikindi)
-#   TRT 20:12 = UTC 17:12   (aksam zirvesi)
+#  Bu yuzden yayin saati tetiklemeden AYRILDI:
+#    1) Video hedef saatten 8 saate kadar ONCE uretiliyor.
+#    2) YouTube'a "private + publishAt" ile yukleniyor.
+#    3) Videoyu yayina alma isini YouTube yapiyor - dakikasi dakikasina.
+#  Yani is gece 02:00'de de calissa 06:40'ta da calissa, video TRT 07:00'de
+#  yayina giriyor.
 #
-# Ayni kanalda ikinci bir otomasyon calisiyor (gknsays/shorts) ve onun
-# slotlari bunlarin ARASINDA: TRT 12:12 / 17:12 / 22:12. Kanaldan gun
-# boyunca 6 video cikiyor, iki video arasinda en az 2 saat var.
+#  8 saatlik hazirlik penceresi ozellikle 07:00 yayini icin secildi: uretim
+#  bir onceki aksam TRT 23:00'te aciliyor, yani sabahki video gece boyunca
+#  hazirlanabiliyor. Bekci bu yuzden gun sinirini asabiliyor.
 #
-# NEDEN AZ SAYIDA VIDEO? Ayni kanaldan gun icinde cok sayida video ciktiginda YouTube her
-# birine daha kucuk bir baslangic gosterim havuzu ayirir ve videolar
-# birbirinin izleyicisini yer. Kanal oturmamisken dogru strateji, gosterimi
-# az sayida videoda yogunlastirip izlenme oranini yukari cekmektir.
+#  NEDEN AZ SAYIDA VIDEO? Ayni kanaldan gun icinde cok sayida video
+#  ciktiginda YouTube her birine daha kucuk bir baslangic gosterim havuzu
+#  ayirir ve videolar birbirinin izleyicisini yer.
 
 on:
   schedule:
-    # NEDEN */20 DEGIL: "*/20" yazildiginda GitHub tetiklemelerin neredeyse
-    # tamamini dusuruyordu - olculen gercek aralik ~3 saatti (19:01, 22:05).
-    # Sik cron'lar agir sekilde kisiliyor. Bunun yerine gunde 6 kez, dogrudan
-    # slot saatlerinde ve birer saat sonrasinda (yedek) tetikliyoruz.
-    # Slot saatleri UTC 07:12 / 12:12 / 17:12.
-    - cron: "12 7,8,12,13,17,18 * * *"
+    # Saat basi yoklaniyor. Uretim penceresi 07:00 yayini icin bir onceki
+    # aksam TRT 23:00'te (UTC 20:00) aciliyor ve 19:30 yayininin telafisi
+    # TRT 22:30'a (UTC 19:30) kadar suruyor - yani pencere gunun tamamina
+    # yayiliyor, bu yuzden butun saatlerde yokluyoruz.
+    # Tetiklemeler duzensiz geldigi icin ne kadar cok deneme olursa hedef
+    # saatten once uretim yapma sansi o kadar yuksek. Bosa gecen yoklamalar
+    # bekcide ~10 saniyede sonlandigi icin maliyeti yok.
+    # Dakika 07: tam saat baslari GitHub tarafinda en yogun an, oradan kaciyoruz.
+    - cron: "7 * * * *"
   workflow_dispatch:
     inputs:
       force:
@@ -59,8 +66,8 @@ jobs:
           persist-credentials: true
 
       # Bekci: bu tetiklemede gercekten video uretilecek mi?
-      # Cogu tetikleme burada durur ve is saniyeler icinde biter.
-      - name: Yayin slotu kontrolu
+      # Cogu tetikleme burada durur ve is ~10 saniyede biter.
+      - name: Yayin kontrolu
         id: guard
         run: |
           if [ "${{ inputs.force }}" = "true" ]; then
@@ -120,6 +127,10 @@ jobs:
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REDIRECT_URI: ${{ secrets.YT_REDIRECT_URI }}
           YT_PRIVACY_STATUS: ${{ secrets.YT_PRIVACY_STATUS }}
+          # Videonun YouTube'da yayina girecegi tam an (RFC3339, UTC).
+          # scripts/slotGuard.mjs hesapliyor, scripts/upload.mjs uyguluyor.
+          # Bos ise video dogrudan yayinlanir (gecikmis yayin telafisi).
+          PUBLISH_AT: ${{ steps.guard.outputs.publish_at }}
           # Kapanis ekraninda gosterilen kanal adi.
           CHANNEL_NAME: ${{ vars.CHANNEL_NAME || 'Fokus' }}
         run: node scripts/produceQuiz.mjs
@@ -133,7 +144,7 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      - name: Slotu isaretle ve soru gecmisini geri kaydet
+      - name: Yayini isle ve soru gecmisini geri kaydet
         if: success() && steps.guard.outputs.should_run == 'true'
         env:
           SLOT: ${{ steps.guard.outputs.slot }}
