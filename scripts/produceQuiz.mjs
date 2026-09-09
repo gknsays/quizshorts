@@ -49,6 +49,49 @@ const DUSUNME_SANIYE = 3.5;
 const HEDEF_SORU = 3;
 const MIN_SORU = 3;
 const MAX_TUR = 6;
+
+// --- Konu (alan) havuzu ve rotasyonu --------------------------------------
+//
+// NEDEN GEREKLİ: Eski sürümde geçmiş olarak yalnızca SORU METİNLERİ
+// tutuluyordu ve isteme "bunları tekrar etme" deniyordu. Model bunu harfiyen
+// uyguluyor - aynı soruyu bir daha sormuyor - ama aynı KONUYA tekrar tekrar
+// dönüyordu. 12 soruluk geçmişte 2 yıldırım, 2 paslı vida, 3 telefon ve
+// 2 lastik sorusu birikmişti: metinler farklı, konular aynı. İzleyici için
+// kanal tek düze görünüyor.
+//
+// Çözüm: alan seçimini modele bırakmak yerine kodun yapması. Her video için
+// EN UZUN SÜREDİR KULLANILMAYAN alanlar seçilip modele "sorular bu alanlardan
+// olacak" deniyor. Böylece çeşitlilik modelin insafına değil rotasyona bağlı.
+//
+// Havuz bilinçli olarak geniş ve ince taneli: "teknoloji" tek başına bir alan
+// olsaydı telefon soruları yine üst üste gelirdi. Alanlar ne kadar dar olursa
+// rotasyon o kadar iyi ayrıştırıyor.
+const ALAN_HAVUZU = [
+  // araç ve yol
+  "araba-bakim", "araba-surus", "trafik-kural", "motosiklet", "ulasim",
+  "denizcilik", "havacilik",
+  // teknoloji
+  "telefon", "bilgisayar", "internet-guvenlik", "elektronik", "elektrik",
+  // el işi ve yapı
+  "alet-tamir", "insaat-yapi", "ev-guvenlik", "is-guvenligi",
+  // doğa ve hayatta kalma
+  "doga-bitki", "hayvanlar", "hava-durumu", "hayatta-kalma", "cografya",
+  // bilim
+  "fizik", "kimya", "uzay", "icat-kesif",
+  // insan
+  "vucut", "saglik", "beslenme", "uyku-dinlenme",
+  // kültür
+  "tarih", "savas-tarihi", "spor", "para-ekonomi", "dil-kelime",
+  "muzik-sinema", "genel-kultur",
+  // kanalın nişi değil, seyrek kullanılıyor (bkz. NADIR_ALANLAR)
+  "mutfak", "temizlik",
+];
+
+// Kanalın izleyicisi ağırlıkla erkek; mutfak/temizlik soruları tutmuyordu.
+// Tamamen yasaklamak yerine seyrekleştiriyoruz: bu alanlar her videoda değil,
+// yaklaşık beş videodan birinde aday havuzuna giriyor.
+const NADIR_ALANLAR = new Set(["mutfak", "temizlik"]);
+const NADIR_ALAN_SANSI = 0.2;
 const CEVAP_PAYI = 0.6;
 const INTRO_SANIYE = 2.0;
 const OUTRO_SANIYE = 3.2;
@@ -121,15 +164,63 @@ function extractJson(raw) {
   return JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1));
 }
 
+// Geçmiş kayıtları { soru, alan } biçiminde tutuluyor. Eski sürüm düz string
+// dizisi yazıyordu; o kayıtların alanı bilinmediği için null geçiliyor - bu
+// yalnızca rotasyonun ilk birkaç videoda daha az bilgiyle çalışması demek,
+// dosyayı elle düzeltmeye gerek yok.
 function loadUsed() {
+  let ham;
   try {
-    return JSON.parse(fs.readFileSync(USED_FILE, "utf-8"));
+    ham = JSON.parse(fs.readFileSync(USED_FILE, "utf-8"));
   } catch {
     return [];
   }
+  if (!Array.isArray(ham)) return [];
+  return ham
+    .map((x) =>
+      typeof x === "string"
+        ? { soru: x, alan: null }
+        : { soru: String(x?.soru ?? ""), alan: x?.alan ?? null }
+    )
+    .filter((x) => x.soru);
 }
 
-function buildPrompt(gecmisSorular) {
+// Bu video için hangi alanlardan soru sorulacak?
+// En uzun süredir kullanılmayan alanlar önce geliyor (LRU). Hiç
+// kullanılmamış alanlar en başta; eşitlik durumunda sıra rastgele, yoksa
+// havuzun baştaki alanları hep birlikte seçilirdi.
+function siradakiAlanlar(gecmis, adet = HEDEF_SORU) {
+  const havuz = ALAN_HAVUZU.filter(
+    (a) => !NADIR_ALANLAR.has(a) || Math.random() < NADIR_ALAN_SANSI
+  );
+
+  // Her alanın geçmişte en son kaçıncı soruda göründüğü. Hiç görünmediyse -1.
+  const sonKullanim = new Map(havuz.map((a) => [a, -1]));
+  gecmis.forEach((s, i) => {
+    if (s.alan && sonKullanim.has(s.alan)) sonKullanim.set(s.alan, i);
+  });
+
+  const karisik = havuz
+    .map((a) => ({ a, r: Math.random() }))
+    .sort((x, y) => x.r - y.r)
+    .map((x) => x.a);
+
+  return karisik
+    .sort((x, y) => sonKullanim.get(x) - sonKullanim.get(y))
+    .slice(0, adet);
+}
+
+function buildPrompt(gecmis, istenenAlanlar) {
+  const gecmisSorular = gecmis.map((g) => g.soru);
+
+  // İstenen alanlarda daha önce ne sorulduğunu ayrıca gösteriyoruz. Genel
+  // listede 60 soru arasında kaybolan bu örnekler, modelin aynı alanda aynı
+  // nesneye dönmesini engelleyen asıl fren.
+  const alandakiler = gecmis
+    .filter((g) => g.alan && istenenAlanlar.includes(g.alan))
+    .map((g) => `${g.alan}: ${g.soru}`)
+    .slice(-25);
+
   return [
     "Türkçe bir YouTube Shorts kanalı için 3 soruluk kısa bir bilgi testi yaz.",
     "Kanalın konusu: günlük yaşam bilgisi, pratik tüyolar, genel kültür.",
@@ -152,12 +243,15 @@ function buildPrompt(gecmisSorular) {
     "  yorumu tetikliyor ve videoyu tekrar izlettiriyor.",
     "- Yabancı özel ad (kişi, kurum, yer) KULLANMA. Türkçe konuşan izleyici",
     "  yabancı isim duyunca kopuyor. Konular günlük hayattan olsun.",
-    "- ÜÇ SORU BİRBİRİNDEN FARKLI ALANDA OLSUN. Her soruya bir \"alan\" etiketi",
-    "  yaz ve üçü FARKLI olsun. Geçerli alanlar:",
-    "  araba | teknoloji | alet-tamir | spor | tarih | bilim | para | doga |",
-    "  hayatta-kalma | saglik | vucut | ulasim | genel-kultur | mutfak",
-    "  Üç soruyu da mutfaktan seçmek en sık yapılan hata; video tek düze",
-    "  görünüyor ve izleyici ikinci soruda kaydırıyor.",
+    "- ALANLAR BU VİDEO İÇİN ÖNCEDEN SEÇİLDİ. Sırasıyla şu alanlardan birer",
+    "  soru yaz ve her sorunun \"alan\" etiketine bu adı AYNEN yaz:",
+    ...istenenAlanlar.map((a, i) => `    ${i + 1}. ${a}`),
+    "  Bu alanların dışına ÇIKMA, birini diğeriyle değiştirme, ikisini aynı",
+    "  alandan yazma. Alan seçimi kanalın konu dağılımını dengelemek için",
+    "  yapılıyor; serbest bırakıldığında sorular sürekli araba ve telefon",
+    "  etrafında toplanıp kanal tek düze görünüyordu.",
+    "- Aynı alan içinde de ÇEŞİTLİLİK ara. Örneğin \"telefon\" alanında hep şarj",
+    "  sorma; ekran, kamera, hafıza, sinyal, su teması gibi başka bir yöne git.",
     "- Şıklar soruyu DOĞRUDAN cevaplasın. Soru \"dolapta mı tezgahta mı\" diye",
     "  soruluyorsa şıklar \"dolapta / tezgahta\" gibi olmalı; alakasız bir",
     "  ifade (\"kuru ve karanlıkta\") şık olarak konursa soru anlamsızlaşıyor.",
@@ -192,6 +286,11 @@ function buildPrompt(gecmisSorular) {
       ? "DAHA ÖNCE SORULMUŞ sorular - bunları ne aynen ne de başka kelimelerle tekrar et:\n" +
         JSON.stringify(gecmisSorular.slice(-60))
       : "",
+    alandakiler.length
+      ? "\nBU VİDEONUN ALANLARINDA daha önce şunlar soruldu. Aynı nesneye ya da\n" +
+        "aynı olaya bir daha dönme; o alanda BAŞKA bir konu bul:\n" +
+        alandakiler.join("\n")
+      : "",
     "",
     "YOUTUBE:",
     '- "title": EN FAZLA 50 KARAKTER, merak uyandıran, sonuna tek emoji.',
@@ -207,7 +306,7 @@ function buildPrompt(gecmisSorular) {
         tags: ["..."],
         sorular: [
           {
-            alan: "mutfak",
+            alan: istenenAlanlar[0] ?? "genel-kultur",
             soru: "...",
             secenekler: ["...", "...", "..."],
             dogru: 0,
@@ -469,6 +568,10 @@ async function main() {
   console.log("=== 1/4 Sorular üretiliyor ve doğrulanıyor ===");
   const gecmis = loadUsed();
 
+  // Alanları model değil kod seçiyor; gerekçe ALAN_HAVUZU tanımında.
+  const istenenAlanlar = siradakiAlanlar(gecmis);
+  console.log(`Bu videonun alanları: ${istenenAlanlar.join(" | ")}`);
+
   // Doğrulamadan geçen sorular biriktiriliyor. Bir soru elenirse tüm parti
   // atılmıyor; eksik kalan kadarı yeni turda tamamlanıyor.
   const dogrulanmis = [];
@@ -476,7 +579,10 @@ async function main() {
   let sonQuiz = null;
 
   for (let tur = 1; tur <= MAX_TUR && dogrulanmis.length < HEDEF_SORU; tur++) {
-    const aday = extractJson(await callGemini(buildPrompt(gecmis)));
+    // Her turda yalnızca hâlâ eksik olan alanlar isteniyor; aksi halde model
+    // zaten doldurduğumuz alana yeniden soru üretip turu boşa harcıyor.
+    const eksikAlanlar = istenenAlanlar.filter((a) => !kullanilanAlanlar.has(a));
+    const aday = extractJson(await callGemini(buildPrompt(gecmis, eksikAlanlar)));
     if (!Array.isArray(aday?.sorular) || aday.sorular.length === 0) {
       console.warn(`⚠️  Tur ${tur}/${MAX_TUR}: soru üretilemedi, yeniden deneniyor...`);
       continue;
@@ -499,6 +605,16 @@ async function main() {
       const soru = siklariKaristir(ham);
       const alan = String(soru.alan || "").toLocaleLowerCase("tr-TR").trim();
       if (kullanilanAlanlar.has(alan)) continue; // aynı alandan ikinci soru olmasın
+
+      // Rotasyonun dışına çıkan soruyu ilk turlarda reddediyoruz. Son iki tur
+      // gevşetiliyor: model istenen alanda ısrarla üretemezse çeşitlilik
+      // uğruna videoyu tamamen kaybetmek istemiyoruz.
+      if (tur <= MAX_TUR - 2 && !istenenAlanlar.includes(alan)) {
+        console.log(
+          `  [${alan}] ${String(soru.soru).slice(0, 46)} ... ✗ istenen alan değil (${eksikAlanlar.join(", ")})`
+        );
+        continue;
+      }
 
       const beklenenHarf = String.fromCharCode(65 + soru.dogru);
       process.stdout.write(
@@ -654,8 +770,16 @@ async function main() {
   });
   console.log(`\n✅ Video hazır: ${OUT_PATH}`);
 
-  // Sorular geçmişe yazılıyor ki tekrar sorulmasın.
-  const yeniGecmis = [...gecmis, ...quiz.sorular.map((s) => s.soru)].slice(-300);
+  // Sorular geçmişe yazılıyor ki tekrar sorulmasın. Soru metniyle birlikte
+  // ALANI da yazıyoruz: rotasyon (siradakiAlanlar) bu bilgiyle çalışıyor,
+  // alansız kayıtlar "hiç kullanılmamış alan" gibi görünüp dengeyi bozuyor.
+  const yeniGecmis = [
+    ...gecmis,
+    ...quiz.sorular.map((s) => ({
+      soru: s.soru,
+      alan: String(s.alan || "").toLocaleLowerCase("tr-TR").trim() || null,
+    })),
+  ].slice(-300);
   fs.writeFileSync(USED_FILE, JSON.stringify(yeniGecmis, null, 2));
 
   if (noUpload) {
