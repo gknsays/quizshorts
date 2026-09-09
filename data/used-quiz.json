@@ -88,5 +88,20 @@
     "soru": "Güneş sistemindeki en sıcak gezegen hangisidir?",
     "alan": "uzay",
     "tip": "yanlis-bilinen"
+  },
+  {
+    "soru": "Kredi kartı son kullanma tarihi nerede yazar?",
+    "alan": "para-ekonomi",
+    "tip": "temel-bilgi"
+  },
+  {
+    "soru": "İnsan vücudundaki en güçlü kas hangisidir?",
+    "alan": "vucut",
+    "tip": "ilginc-bilgi"
+  },
+  {
+    "soru": "Futbolda ilk kırmızı kart hangi yıl gösterildi?",
+    "alan": "spor",
+    "tip": "merak-edilen"
   }
 ]
