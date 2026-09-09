@@ -92,6 +92,45 @@ const ALAN_HAVUZU = [
 // yaklaşık beş videodan birinde aday havuzuna giriyor.
 const NADIR_ALANLAR = new Set(["mutfak", "temizlik"]);
 const NADIR_ALAN_SANSI = 0.2;
+
+// --- Soru tipi (açı) ------------------------------------------------------
+//
+// ALAN sorunun NEYDEN bahsettiğini belirliyor; TİP ise sorunun izleyiciye
+// hangi açıdan yaklaştığını. İkisi ayrı eksen: "telefon" alanında hem yanlış
+// bilinen bir şey hem ilginç bir ayrıntı sorulabilir. Alan rotasyonu tek
+// başına konuyu çeşitlendiriyordu ama sorular yine aynı tonda çıkıyordu.
+//
+// HEPSİNİN ORTAK AMACI: izleyiciyi ŞAŞIRTMAK. Cevabı duyunca "vay be" ya da
+// "ben bunu yanlış biliyormuşum" dedirtmeyen soru, doğru bile olsa videoyu
+// taşımıyor - izleyici ikinci soruda kaydırıyor.
+const SORU_TIPLERI = [
+  {
+    ad: "yanlis-bilinen",
+    tanim:
+      "Toplumda yaygın olarak YANLIŞ bilinen bir şey. İzleyici 'ben bunu " +
+      "böyle biliyordum' deyip yanılmalı. En güçlü tip, cevabı şaşkınlık " +
+      "yaratıyor ve yorum getiriyor.",
+  },
+  {
+    ad: "temel-bilgi",
+    tanim:
+      "Herkesin bildiğini SANDIĞI temel bir konu, ama sorulan ayrıntıyı çoğu " +
+      "kişi bilmiyor. Dikkat: 'suyun kaynama derecesi' gibi herkesin gerçekten " +
+      "bildiği şeyi sorma - bilinen konunun bilinmeyen ayrıntısını sor.",
+  },
+  {
+    ad: "merak-edilen",
+    tanim:
+      "İnsanların gerçekten merak ettiği, 'acaba neden böyle?' dediği şey. " +
+      "Cevap merakı gidermeli, daha da karıştırmamalı.",
+  },
+  {
+    ad: "ilginc-bilgi",
+    tanim:
+      "Şaşırtıcı ve akılda kalıcı bir bilgi; izleyiciye 'bunu birine " +
+      "anlatırım' dedirtmeli. Sırf az bilinen değil, duyunca ETKİLEYEN bir şey.",
+  },
+];
 const CEVAP_PAYI = 0.6;
 const INTRO_SANIYE = 2.0;
 const OUTRO_SANIYE = 3.2;
@@ -179,8 +218,12 @@ function loadUsed() {
   return ham
     .map((x) =>
       typeof x === "string"
-        ? { soru: x, alan: null }
-        : { soru: String(x?.soru ?? ""), alan: x?.alan ?? null }
+        ? { soru: x, alan: null, tip: null }
+        : {
+            soru: String(x?.soru ?? ""),
+            alan: x?.alan ?? null,
+            tip: x?.tip ?? null,
+          }
     )
     .filter((x) => x.soru);
 }
@@ -210,16 +253,117 @@ function siradakiAlanlar(gecmis, adet = HEDEF_SORU) {
     .slice(0, adet);
 }
 
-function buildPrompt(gecmis, istenenAlanlar) {
+// Bu videonun soru tipleri. Alanlarla aynı mantık: en uzun süredir
+// kullanılmayan tipler önce. Dört tip, videoda üç soru olduğu için her tip
+// dört videoda üç kez geliyor - hiçbiri unutulmuyor, hiçbiri de üst üste
+// yığılmıyor.
+function siradakiTipler(gecmis, adet = HEDEF_SORU) {
+  const adlar = SORU_TIPLERI.map((t) => t.ad);
+  const sonKullanim = new Map(adlar.map((a) => [a, -1]));
+  gecmis.forEach((s, i) => {
+    if (s.tip && sonKullanim.has(s.tip)) sonKullanim.set(s.tip, i);
+  });
+
+  return adlar
+    .map((a) => ({ a, r: Math.random() }))
+    .sort((x, y) => x.r - y.r)
+    .map((x) => x.a)
+    .sort((x, y) => sonKullanim.get(x) - sonKullanim.get(y))
+    .slice(0, adet);
+}
+
+// --- Tekrar denetimi ------------------------------------------------------
+//
+// NEDEN KODDA: Tekrar engeli eskiden yalnızca isteme yazılı bir ricaydı
+// ("bunları tekrar etme") ve geçmişin son 60 sorusu gösteriliyordu. Model
+// bunu çoğunlukla dinliyor ama garanti yok: aynı soruyu başka kelimelerle
+// yazdığında hiçbir denetime takılmıyordu. Burası son savunma hattı -
+// benzer bulunan soru, doğrulamaya bile girmeden eleniyor.
+//
+// Karşılaştırma kelime kökü bazında: Türkçe çekim ekleri ("lastiği",
+// "lastikte", "lastik") aynı soruyu farklı gösterdiği için kelimelerin ilk
+// 5 harfi alınıyor. Tam kök çözümlemesi gerekmiyor; amaç aynı NESNE ve
+// aynı EYLEM etrafında dönen soruyu yakalamak.
+const ETKISIZ_KELIMELER = new Set([
+  "nasil", "neden", "hangi", "kacta", "kadar", "olur", "olmali", "gerekir",
+  "sonra", "once", "icin", "daha", "ile", "veya", "ama", "eger", "bir",
+  "bunu", "sunu", "nedir", "kimdir", "midir", "yapilir", "edilir",
+]);
+
+// Türkçe harfler sadeleştiriliyor (ı->i, ş->s, ğ->g, ü->u, ö->o, ç->c).
+// İki sebeple: model bazen sorunun bir kısmını şapkasız/noktasız yazıyor ve
+// "Yıldırım" ile "Yildirim" karşılaştırmada farklı görünüyordu; ayrıca
+// ETKISIZ_KELIMELER listesi zaten sade yazıldığı için normalizasyon olmadan
+// "nasıl" gibi kelimeler listeye hiç takılmıyordu.
+const TR_SADE = {
+  ı: "i", İ: "i", ş: "s", Ş: "s", ğ: "g", Ğ: "g",
+  ü: "u", Ü: "u", ö: "o", Ö: "o", ç: "c", Ç: "c",
+  â: "a", î: "i", û: "u",
+};
+
+function kelimeKokleri(metin) {
+  return new Set(
+    String(metin)
+      .toLocaleLowerCase("tr-TR")
+      .replace(/[ıİşŞğĞüÜöÖçÇâîû]/g, (c) => TR_SADE[c] ?? c)
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .split(/\s+/)
+      .filter((k) => k.length >= 4 && !ETKISIZ_KELIMELER.has(k))
+      .map((k) => k.slice(0, 5))
+  );
+}
+
+// İki soru arasındaki örtüşme oranı (Jaccard). 1.0 = birebir aynı kökler.
+function ortusme(a, b) {
+  if (a.size === 0 || b.size === 0) return 0;
+  let kesisim = 0;
+  for (const k of a) if (b.has(k)) kesisim++;
+  return kesisim / (a.size + b.size - kesisim);
+}
+
+// Eşik ölçerek seçildi. 8 elle yazılmış "başka kelimelerle aynı soru" ve 10
+// gerçekten farklı soru üzerinde denendi:
+//     eşik 0.60 -> 4/8 tekrar yakalandı, 0/10 yanlış alarm
+//     eşik 0.55 -> 5/8                 , 0/10
+//     eşik 0.50 -> 6/8                 , 0/10   <- seçilen
+//     eşik 0.45 -> 6/8                 , 0/10   (kazanç yok, risk artıyor)
+// 0.50'nin altına inmenin faydası yok; üstünde gerçek tekrarlar kaçıyor.
+//
+// SINIR: Tamamen yeniden yazılmış sorular ("Paslı somun en kolay hangi
+// yöntemle sökülür?" -> "Paslanmış somunu sökmenin en kolay yolu nedir?")
+// kelime örtüşmesi düşük olduğu için buraya takılmıyor. Onların ilk savunması
+// isteme verilen geçmiş listesi (son 120 soru); burası son emniyet kemeri.
+const TEKRAR_ESIGI = 0.5;
+
+function benzerGecmisSoru(soru, gecmis) {
+  const kokler = kelimeKokleri(soru);
+  let enIyi = null;
+  for (const g of gecmis) {
+    const oran = ortusme(kokler, kelimeKokleri(g.soru));
+    if (oran >= TEKRAR_ESIGI && (!enIyi || oran > enIyi.oran)) {
+      enIyi = { soru: g.soru, oran };
+    }
+  }
+  return enIyi;
+}
+
+function buildPrompt(gecmis, istenenler) {
   const gecmisSorular = gecmis.map((g) => g.soru);
+  const istenenAlanlar = istenenler.map((x) => x.alan);
 
   // İstenen alanlarda daha önce ne sorulduğunu ayrıca gösteriyoruz. Genel
-  // listede 60 soru arasında kaybolan bu örnekler, modelin aynı alanda aynı
-  // nesneye dönmesini engelleyen asıl fren.
+  // listede onlarca soru arasında kaybolan bu örnekler, modelin aynı alanda
+  // aynı nesneye dönmesini engelleyen asıl fren.
   const alandakiler = gecmis
     .filter((g) => g.alan && istenenAlanlar.includes(g.alan))
     .map((g) => `${g.alan}: ${g.soru}`)
-    .slice(-25);
+    .slice(-30);
+
+  // Yalnızca bu videoda kullanılacak tiplerin tanımı veriliyor; dördünü birden
+  // anlatmak istemi uzatıyor ve model tipleri karıştırıyor.
+  const tipTanimlari = SORU_TIPLERI.filter((t) =>
+    istenenler.some((x) => x.tip === t.ad)
+  ).map((t) => `  ${t.ad}: ${t.tanim}`);
 
   return [
     "Türkçe bir YouTube Shorts kanalı için 3 soruluk kısa bir bilgi testi yaz.",
@@ -236,20 +380,32 @@ function buildPrompt(gecmis, istenenAlanlar) {
     "hiçbir soru sorma. Emin olmadığın bir bilgiyi soru yapma. Yanlış şıklar da",
     "açıkça yanlış olmalı; 'ikisi de doğru sayılabilir' durumu OLMAMALI.",
     "",
+    "EN ÖNEMLİ AMAÇ - İZLEYİCİ ŞAŞIRSIN:",
+    "Her sorunun cevabı izleyiciyi şaşırtmalı. Cevabı okuyunca 'vay be' ya da",
+    "'ben bunu yanlış biliyormuşum' denmiyorsa o soruyu YAZMA, başka bir şey bul.",
+    "Doğru ama sıradan bilgi (herkesin zaten bildiği, tahmin edilebilir cevap)",
+    "videoyu taşımıyor; izleyici ikinci soruda kaydırıyor.",
+    "Kendine şunu sor: 'Bu cevabı duyan biri birine anlatmak ister mi?'",
+    "Cevap hayırsa soruyu değiştir.",
+    "",
     "SORU KURALLARI:",
     "- Soru EN FAZLA 12 KELİME. Ekranda büyük puntoyla görünecek, uzun soru sığmıyor.",
-    "- Sorular günlük hayatta karşılaşılan, herkesin merak edeceği şeyler olsun.",
-    "- İnsanların çoğunun YANLIŞ bildiği şeyler tercih et; şaşırtıcı cevap",
-    "  yorumu tetikliyor ve videoyu tekrar izlettiriyor.",
+    "- CEVAP SORUNUN İÇİNDE GEÇMESİN. Soruyu okuyan biri şıklara bakmadan",
+    "  cevabı bilebiliyorsa şaşırma da olmuyor. Sorulan şeyin adını soruda",
+    "  verme; 'hangi akreple' diye sorup şıkka 'akreple' yazmak gibi.",
     "- Yabancı özel ad (kişi, kurum, yer) KULLANMA. Türkçe konuşan izleyici",
     "  yabancı isim duyunca kopuyor. Konular günlük hayattan olsun.",
-    "- ALANLAR BU VİDEO İÇİN ÖNCEDEN SEÇİLDİ. Sırasıyla şu alanlardan birer",
-    "  soru yaz ve her sorunun \"alan\" etiketine bu adı AYNEN yaz:",
-    ...istenenAlanlar.map((a, i) => `    ${i + 1}. ${a}`),
-    "  Bu alanların dışına ÇIKMA, birini diğeriyle değiştirme, ikisini aynı",
-    "  alandan yazma. Alan seçimi kanalın konu dağılımını dengelemek için",
-    "  yapılıyor; serbest bırakıldığında sorular sürekli araba ve telefon",
-    "  etrafında toplanıp kanal tek düze görünüyordu.",
+    "- HER SORUNUN ALANI VE TİPİ ÖNCEDEN BELİRLENDİ. Sırasıyla şunları yaz ve",
+    "  her sorunun \"alan\" ve \"tip\" etiketine bu adları AYNEN yaz:",
+    ...istenenler.map((x, i) => `    ${i + 1}. alan=${x.alan}  tip=${x.tip}`),
+    "  Bu alanların ve tiplerin dışına ÇIKMA, ikisini aynı alandan yazma.",
+    "  Seçim kanalın konu dağılımını dengelemek için yapılıyor; serbest",
+    "  bırakıldığında sorular sürekli araba ve telefon etrafında toplanıp",
+    "  kanal tek düze görünüyordu.",
+    "",
+    "  SORU TİPLERİ NE DEMEK:",
+    ...tipTanimlari,
+    "",
     "- Aynı alan içinde de ÇEŞİTLİLİK ara. Örneğin \"telefon\" alanında hep şarj",
     "  sorma; ekran, kamera, hafıza, sinyal, su teması gibi başka bir yöne git.",
     "- Şıklar soruyu DOĞRUDAN cevaplasın. Soru \"dolapta mı tezgahta mı\" diye",
@@ -283,8 +439,11 @@ function buildPrompt(gecmis, istenenAlanlar) {
     '  bulunan doğal koruyucu tabaka yıkandığında ortadan kalkar."',
     "",
     gecmisSorular.length
-      ? "DAHA ÖNCE SORULMUŞ sorular - bunları ne aynen ne de başka kelimelerle tekrar et:\n" +
-        JSON.stringify(gecmisSorular.slice(-60))
+      ? "DAHA ÖNCE SORULMUŞ SORULAR - BUNLARI TEKRAR ETME.\n" +
+        "Ne aynen, ne başka kelimelerle, ne de aynı bilgiyi başka açıdan sorarak.\n" +
+        "Aynı nesne ya da aynı olay etrafında dönen bir varyasyon da tekrar sayılır.\n" +
+        "Bu listeye giren bir soruyu yeniden yazarsan soru elenir ve video gecikir:\n" +
+        JSON.stringify(gecmisSorular.slice(-120))
       : "",
     alandakiler.length
       ? "\nBU VİDEONUN ALANLARINDA daha önce şunlar soruldu. Aynı nesneye ya da\n" +
@@ -306,7 +465,8 @@ function buildPrompt(gecmis, istenenAlanlar) {
         tags: ["..."],
         sorular: [
           {
-            alan: istenenAlanlar[0] ?? "genel-kultur",
+            alan: istenenler[0]?.alan ?? "genel-kultur",
+            tip: istenenler[0]?.tip ?? "yanlis-bilinen",
             soru: "...",
             secenekler: ["...", "...", "..."],
             dogru: 0,
@@ -568,9 +728,18 @@ async function main() {
   console.log("=== 1/4 Sorular üretiliyor ve doğrulanıyor ===");
   const gecmis = loadUsed();
 
-  // Alanları model değil kod seçiyor; gerekçe ALAN_HAVUZU tanımında.
+  // Alanı da tipi de model değil kod seçiyor; gerekçe ALAN_HAVUZU ve
+  // SORU_TIPLERI tanımlarında. İkisi ayrı eksen, burada eşleştiriliyor.
   const istenenAlanlar = siradakiAlanlar(gecmis);
-  console.log(`Bu videonun alanları: ${istenenAlanlar.join(" | ")}`);
+  const istenenTipler = siradakiTipler(gecmis);
+  const istenenler = istenenAlanlar.map((alan, i) => ({
+    alan,
+    tip: istenenTipler[i] ?? istenenTipler[0],
+  }));
+  console.log("Bu videonun soruları:");
+  istenenler.forEach((x, i) =>
+    console.log(`  ${i + 1}. ${x.alan}  →  ${x.tip}`)
+  );
 
   // Doğrulamadan geçen sorular biriktiriliyor. Bir soru elenirse tüm parti
   // atılmıyor; eksik kalan kadarı yeni turda tamamlanıyor.
@@ -581,8 +750,8 @@ async function main() {
   for (let tur = 1; tur <= MAX_TUR && dogrulanmis.length < HEDEF_SORU; tur++) {
     // Her turda yalnızca hâlâ eksik olan alanlar isteniyor; aksi halde model
     // zaten doldurduğumuz alana yeniden soru üretip turu boşa harcıyor.
-    const eksikAlanlar = istenenAlanlar.filter((a) => !kullanilanAlanlar.has(a));
-    const aday = extractJson(await callGemini(buildPrompt(gecmis, eksikAlanlar)));
+    const eksikler = istenenler.filter((x) => !kullanilanAlanlar.has(x.alan));
+    const aday = extractJson(await callGemini(buildPrompt(gecmis, eksikler)));
     if (!Array.isArray(aday?.sorular) || aday.sorular.length === 0) {
       console.warn(`⚠️  Tur ${tur}/${MAX_TUR}: soru üretilemedi, yeniden deneniyor...`);
       continue;
@@ -611,7 +780,20 @@ async function main() {
       // uğruna videoyu tamamen kaybetmek istemiyoruz.
       if (tur <= MAX_TUR - 2 && !istenenAlanlar.includes(alan)) {
         console.log(
-          `  [${alan}] ${String(soru.soru).slice(0, 46)} ... ✗ istenen alan değil (${eksikAlanlar.join(", ")})`
+          `  [${alan}] ${String(soru.soru).slice(0, 46)} ... ✗ istenen alan değil (${eksikler.map((x) => x.alan).join(", ")})`
+        );
+        continue;
+      }
+
+      // Tekrar denetimi bilgi doğrulamasından ÖNCE: eşleşen soru zaten
+      // elenecek, boşuna üç doğrulama isteği harcamanın anlamı yok.
+      // Bu videoda kabul edilenler de karşılaştırmaya giriyor: aynı partide
+      // birbirine çok benzeyen iki soru da tekrar sayılır.
+      const tekrar = benzerGecmisSoru(soru.soru, [...gecmis, ...dogrulanmis]);
+      if (tekrar) {
+        console.log(
+          `  [${alan}] ${String(soru.soru).slice(0, 46)} ... ✗ TEKRAR ` +
+            `(%${Math.round(tekrar.oran * 100)} benzer: "${tekrar.soru}")`
         );
         continue;
       }
@@ -773,13 +955,17 @@ async function main() {
   // Sorular geçmişe yazılıyor ki tekrar sorulmasın. Soru metniyle birlikte
   // ALANI da yazıyoruz: rotasyon (siradakiAlanlar) bu bilgiyle çalışıyor,
   // alansız kayıtlar "hiç kullanılmamış alan" gibi görünüp dengeyi bozuyor.
+  // Sınır 300'den 1000'e çıkarıldı: tekrar denetimi (benzerGecmisSoru) TÜM
+  // geçmişi tarıyor, dolayısıyla ne kadar uzun hafıza o kadar iyi. Günde 3
+  // soruyla 1000 kayıt yaklaşık bir yıl demek ve dosya ~60 KB kalıyor.
   const yeniGecmis = [
     ...gecmis,
     ...quiz.sorular.map((s) => ({
       soru: s.soru,
       alan: String(s.alan || "").toLocaleLowerCase("tr-TR").trim() || null,
+      tip: String(s.tip || "").toLocaleLowerCase("tr-TR").trim() || null,
     })),
-  ].slice(-300);
+  ].slice(-1000);
   fs.writeFileSync(USED_FILE, JSON.stringify(yeniGecmis, null, 2));
 
   if (noUpload) {
