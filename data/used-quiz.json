@@ -73,5 +73,20 @@
     "soru": "Bilgisayarı kapatırken hangi işlem yapılmamalıdır?",
     "alan": "bilgisayar",
     "tip": "temel-bilgi"
+  },
+  {
+    "soru": "Seyir halindeyken lastik basıncı düşerse en tehlikeli davranış nedir?",
+    "alan": "araba-surus",
+    "tip": "ilginc-bilgi"
+  },
+  {
+    "soru": "Evdeki lityum pil yangınına ilk müdahale neyle yapılmaz?",
+    "alan": "is-guvenligi",
+    "tip": "merak-edilen"
+  },
+  {
+    "soru": "Güneş sistemindeki en sıcak gezegen hangisidir?",
+    "alan": "uzay",
+    "tip": "yanlis-bilinen"
   }
 ]
