@@ -1,14 +1,77 @@
 [
-  "Yıldırım düşerse arabanın içinde ne güvendedir?",
-  "Paslı somun en kolay hangi yöntemle sökülür?",
-  "Güneş hangi renk ışık yayar?",
-  "Sis farı hangi havada kesinlikle açılmamalı?",
-  "Paslanan metal vida en hızlı neyle sökülür?",
-  "Telefon şarjda iken oyun oynamak neye zarar verir?",
-  "Telefon şarjı yüzde kaçken doluma takılmalı?",
-  "Araba lastiği basıncı ne zaman ölçülmeli?",
-  "Yıldırım düşerse açık alanda nereye çömelmeli?",
-  "Araba lastiğine yazın fazla hava basılırsa ne olur?",
-  "Derin çizilen telefon ekranı neyle ovulmamalıdır?",
-  "Pişen et dinlendirilirken üzeri neyle kapatılmalı?"
+  {
+    "soru": "Yıldırım düşerse arabanın içinde ne güvendedir?",
+    "alan": null,
+    "tip": null
+  },
+  {
+    "soru": "Paslı somun en kolay hangi yöntemle sökülür?",
+    "alan": null,
+    "tip": null
+  },
+  {
+    "soru": "Güneş hangi renk ışık yayar?",
+    "alan": null,
+    "tip": null
+  },
+  {
+    "soru": "Sis farı hangi havada kesinlikle açılmamalı?",
+    "alan": null,
+    "tip": null
+  },
+  {
+    "soru": "Paslanan metal vida en hızlı neyle sökülür?",
+    "alan": null,
+    "tip": null
+  },
+  {
+    "soru": "Telefon şarjda iken oyun oynamak neye zarar verir?",
+    "alan": null,
+    "tip": null
+  },
+  {
+    "soru": "Telefon şarjı yüzde kaçken doluma takılmalı?",
+    "alan": null,
+    "tip": null
+  },
+  {
+    "soru": "Araba lastiği basıncı ne zaman ölçülmeli?",
+    "alan": null,
+    "tip": null
+  },
+  {
+    "soru": "Yıldırım düşerse açık alanda nereye çömelmeli?",
+    "alan": null,
+    "tip": null
+  },
+  {
+    "soru": "Araba lastiğine yazın fazla hava basılırsa ne olur?",
+    "alan": null,
+    "tip": null
+  },
+  {
+    "soru": "Derin çizilen telefon ekranı neyle ovulmamalıdır?",
+    "alan": null,
+    "tip": null
+  },
+  {
+    "soru": "Pişen et dinlendirilirken üzeri neyle kapatılmalı?",
+    "alan": null,
+    "tip": null
+  },
+  {
+    "soru": "Kırmızı ışıkta sağa dönüş nerede yasaktır?",
+    "alan": "trafik-kural",
+    "tip": "merak-edilen"
+  },
+  {
+    "soru": "Bataryanın ömrünü uzatmak için telefon gece nasıl şarj edilmeli?",
+    "alan": "elektronik",
+    "tip": "yanlis-bilinen"
+  },
+  {
+    "soru": "Bilgisayarı kapatırken hangi işlem yapılmamalıdır?",
+    "alan": "bilgisayar",
+    "tip": "temel-bilgi"
+  }
 ]
