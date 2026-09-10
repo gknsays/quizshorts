@@ -118,5 +118,20 @@
     "soru": "Alarm çalınca snooze tuşuna basmak insanı ne yapar?",
     "alan": "uyku-dinlenme",
     "tip": "temel-bilgi"
+  },
+  {
+    "soru": "İlk elektrikli süpürge çalışmak için ne gerektiriyordu?",
+    "alan": "icat-kesif",
+    "tip": "ilginc-bilgi"
+  },
+  {
+    "soru": "Kesik parmak en doğru hangi sıvıyla temizlenmeli?",
+    "alan": "saglik",
+    "tip": "merak-edilen"
+  },
+  {
+    "soru": "Sıcak havada kask takınca kafa neden serinler?",
+    "alan": "motosiklet",
+    "tip": "yanlis-billigen"
   }
 ]
