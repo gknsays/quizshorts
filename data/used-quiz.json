@@ -103,5 +103,20 @@
     "soru": "Futbolda ilk kırmızı kart hangi yıl gösterildi?",
     "alan": "spor",
     "tip": "merak-edilen"
+  },
+  {
+    "soru": "Bulutlu havalarda güneş kremi sürülmeli mi?",
+    "alan": "hava-durumu",
+    "tip": "yanlis-bilinen"
+  },
+  {
+    "soru": "Pişen etin suyu kaçmaması için ne zaman tuzlanmalı?",
+    "alan": "beslenme",
+    "tip": "ilginc-bilgi"
+  },
+  {
+    "soru": "Alarm çalınca snooze tuşuna basmak insanı ne yapar?",
+    "alan": "uyku-dinlenme",
+    "tip": "temel-bilgi"
   }
 ]
