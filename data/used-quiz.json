@@ -133,5 +133,20 @@
     "soru": "Sıcak havada kask takınca kafa neden serinler?",
     "alan": "motosiklet",
     "tip": "yanlis-billigen"
+  },
+  {
+    "soru": "Hareket halindeki uçakta havaya zıplayan biri nereye düşer?",
+    "alan": "fizik",
+    "tip": "yanlis-bilinen"
+  },
+  {
+    "soru": "Araba lastiğinin havası en doğru ne zaman kontrol edilir?",
+    "alan": "ulasim",
+    "tip": "temel-bilgi"
+  },
+  {
+    "soru": "Evde gaz kaçağı şüphesinde ilk olarak ne yapılmamalıdır?",
+    "alan": "ev-guvenlik",
+    "tip": "ilginc-bilgi"
   }
 ]
