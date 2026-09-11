@@ -1,5 +1,16 @@
 # Quiz Shorts Otomasyonu
 
+> **BU OTOMASYON IPTAL EDILDI (11 Eylul 2026).**
+> Quiz paylasimlari kanalin goruntulenmelerini dusurdugu icin zamanlanmis
+> uretim tamamen kaldirildi: GitHub Actions workflow'u, uretim script'leri
+> (`produceQuiz.mjs`, `slotGuard.mjs`, `upload.mjs`, `makeSfx.mjs`) ve konu
+> gecmisi dosyalari silindi. Format sifirdan yeniden tasarlanacak.
+> Eski kod git gecmisinde duruyor: `git show c04dbfc`.
+>
+> Asagidaki dokumantasyon eski kuruluma aittir, artik gecerli degildir.
+
+---
+
 Türkçe YouTube Shorts için 3 soruluk bilgi testi videoları üretir ve kanala yükler.
 
 Günde 4 video, tamamen otomatik, GitHub Actions üzerinde ücretsiz çalışır.

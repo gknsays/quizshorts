@@ -5,9 +5,6 @@
   "type": "module",
   "description": "Turkce YouTube Shorts quiz otomasyonu - dogrulanmis sorular, Remotion ile uretilen gorsel, otomatik yayin",
   "scripts": {
-    "quiz": "node scripts/produceQuiz.mjs",
-    "quiz:test": "node scripts/produceQuiz.mjs --no-upload",
-    "make-sfx": "node scripts/makeSfx.mjs",
     "preview": "remotion studio src/index.ts",
     "youtube-auth": "node scripts/youtubeAuth.mjs"
   },
