@@ -148,5 +148,20 @@
     "soru": "Evde gaz kaçağı şüphesinde ilk olarak ne yapılmamalıdır?",
     "alan": "ev-guvenlik",
     "tip": "ilginc-bilgi"
+  },
+  {
+    "soru": "TDK sözlüğüne göre unvan kelimesinin doğru yazılışı nedir?",
+    "alan": "dil-kelime",
+    "tip": "yanlis-bilinen"
+  },
+  {
+    "soru": "İlk cep telefonu görüşmesi hangi ülkede yapıldı?",
+    "alan": "genel-kultur",
+    "tip": "temel-bilgi"
+  },
+  {
+    "soru": "Duvara çivi çakarken çatlamayı önlemek için çivinin ucu ne yapılmalı?",
+    "alan": "insaat-yapi",
+    "tip": "merak-edilen"
   }
 ]
